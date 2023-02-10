@@ -8,7 +8,7 @@ import { ObjectId } from 'mongodb';
 /**
  * Importing user defined packages.
  */
-import { Validator, Crypto, Context, AppError } from '@/utils';
+import { Validator, Crypto, Context, AppError, SERVICE_NAME } from '@/utils';
 
 /**
  * Importing and defining types.
@@ -31,7 +31,8 @@ export interface IUserBase {
   verified: boolean;
   /** Array storing the session details of the user */
   sessions: IUserSession[];
-  /** Determines the type of authentication the user used to log into the app */
+  /** URL containing the user's profile pic */
+  imageUrl?: string;
 }
 
 export interface INativeUser extends IUserBase {
@@ -63,6 +64,7 @@ export type IUserDoc = Omit<INativeUser, 'uid'> | Omit<IOAuthUser, 'uid'>;
  */
 const logger = global.getLogger('models:user');
 const usersCollection = global.getCollection('users');
+const metadataCollection = global.getCollection('metadata');
 
 /**
  * Contains methods to manipulate user data
@@ -104,6 +106,7 @@ export class User {
 
     const session = { id: crypto.randomBytes(32).toString('base64'), createdOn: new Date() };
     const result = await usersCollection.insertOne({ ...user, sessions: [session] });
+    await metadataCollection.insertOne({ uid: result.insertedId, service: SERVICE_NAME, billCount: 0, groups: [], pms: [] });
     logger.info(`User '${user.email}' registered a ${user.password ? 'Native' : 'OAuth'} account`);
     Context.setCurrentSession(session);
     return { uid: result.insertedId.toString(), ...user };

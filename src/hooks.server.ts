@@ -40,7 +40,7 @@ global.getLogger = (metadata) => (typeof metadata === 'string' ? logger.child({ 
 /******************************************* Database ********************************************/
 
 const DB_URI = process.env.DB_URI || 'mongodb://localhost/chronicle';
-const DB_COLLECTION_NAMES = ['users', 'expenses', 'settings', 'metadata'] as const;
+const DB_COLLECTION_NAMES = ['users', 'expenses', 'metadata'] as const;
 
 const mongoClient = new MongoClient(DB_URI);
 const db = mongoClient.db();
@@ -62,7 +62,6 @@ for (let index = 0; index < DB_COLLECTION_NAMES.length; index++) {
 const collections = {
   users: db.collection('users'),
   expenses: db.collection('expenses'),
-  settings: db.collection('settings'),
   metadata: db.collection('metadata'),
 };
 
@@ -73,19 +72,14 @@ const usersIndexExists = usersIndexes.find((index) => index.name === usersIndexO
 if (!usersIndexExists) await collections.users.createIndex({ email: 1 }, usersIndexOpts);
 
 const expensesIndexes = await collections.expenses.indexes();
-const expensesIndexOpts = { unique: true, background: true, name: 'UNIQUE_UPID_AND_EID_INDEX' };
+const expensesIndexOpts = { unique: true, background: true, name: 'UNIQUE_UID_AND_EID_INDEX' };
 const expensesIndexExists = expensesIndexes.find((index) => index.name === expensesIndexOpts.name);
-if (!expensesIndexExists) await collections.expenses.createIndex({ upid: 1, _id: 1 }, expensesIndexOpts);
-
-const settingsIndexes = await collections.settings.indexes();
-const settingsIndexOpts = { unique: true, background: true, name: 'UNIQUE_UID_AND_MODULE_INDEX' };
-const settingsIndexExists = settingsIndexes.find((index) => index.name === settingsIndexOpts.name);
-if (!settingsIndexExists) await collections.settings.createIndex({ uid: 1, module: 1 }, settingsIndexOpts);
+if (!expensesIndexExists) await collections.expenses.createIndex({ uid: 1, _id: 1 }, expensesIndexOpts);
 
 const metadataIndexes = await collections.metadata.indexes();
-const metadataIndexOpts = { unique: true, background: true, name: 'UNIQUE_UPID_AND_MODULE_INDEX' };
+const metadataIndexOpts = { unique: true, background: true, name: 'UNIQUE_SERVICE_AND_UID_INDEX' };
 const metadataIndexExists = metadataIndexes.find((index) => index.name === metadataIndexOpts.name);
-if (!metadataIndexExists) await collections.metadata.createIndex({ upid: 1, module: 1 }, metadataIndexOpts);
+if (!metadataIndexExists) await collections.metadata.createIndex({ service: 1, uid: 1 }, metadataIndexOpts);
 
 process.on('SIGINT', () => mongoClient.close().then(() => logger.info('disconnected from database')));
 global.getCollection = (name) => (collections[name] || db.collection(name)) as any;
@@ -111,17 +105,6 @@ async function verifyCookie(cookie?: string) {
   return user;
 }
 
-async function getUserSettings(uid: string, headers: Request['headers']) {
-  const settings = await Library.settings.findByUID(uid);
-  let profile = settings?.profile[0] ?? null;
-  const profileHeader = headers.get('X-Chronicle-Profile');
-  if (profileHeader) {
-    const pid = /^(IN|GB)$/.test(profileHeader) ? profileHeader : 'IN';
-    profile = settings?.profile.find((p) => p.id === pid) ?? null;
-  }
-  return { settings, profile };
-}
-
 export const handle: Handle = async ({ event, resolve }) => {
   return Context.init(event, async () => {
     logger.info('Request context inited');
@@ -130,8 +113,12 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (url === '/api/status' || url === '/api/set-cookie') return resolve(event);
 
     const user = await verifyCookie(event.cookies.get(AUTH.COOKIE_NAME));
-    const { profile, settings } = await getUserSettings(user.uid, event.request.headers);
-    Context.setCurrentUser(user, settings, profile);
+    const metadata = await Library.metadata.findByUID(user.uid);
+    if (!metadata) {
+      logger.error(`Metadata not found for user '${user.email}'`);
+      throw error(500, { message: 'Unexpected Server Error' });
+    }
+    Context.setCurrentUser(user, metadata);
 
     return resolve(event);
   });

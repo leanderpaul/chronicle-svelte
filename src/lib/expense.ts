@@ -26,8 +26,8 @@ export interface IExpenseItem {
 export interface IExpense {
   /** Expense ID ID of the  */
   eid: string;
-  /** User Profile ID to whom this expense is associated with. It's value is '<User ID>-<User Profile ID>' */
-  upid: string;
+  /** User ID to whom this expense is associated with' */
+  uid: string;
   /** Bill ID that is mentioned in the bill or invoice */
   bid?: string;
   /** Name of the store from which this bill or invoice is issued */
@@ -40,11 +40,13 @@ export interface IExpense {
   pm?: string;
   /** Description of the expense */
   desc?: string;
+  /** The currency used to pay the bill */
+  currency: 'INR' | 'GBP';
   /** Total amount of the expense sent. It is the sum of the price of all the items in the bill */
   total: number;
 }
 
-export type IExpenseDoc = Omit<IExpense, 'eid'>;
+export type IExpenseDoc = { uid: ObjectId } & Omit<IExpense, 'eid' | 'uid'>;
 
 /**
  * Declaring the constants.
@@ -52,7 +54,7 @@ export type IExpenseDoc = Omit<IExpense, 'eid'>;
 const logger = global.getLogger('models:expense');
 const expenseCollection = global.getCollection('expenses');
 
-function validateExpense(input: Omit<IExpense, 'upid' | 'eid' | 'total'>) {
+function validateExpense(input: Omit<IExpense, 'uid' | 'eid' | 'total'>) {
   const items = input.items.filter((item) => item.qty === undefined || item.qty > 0);
   if (!sagus.isValid(input.store)) throw new AppError('VALIDATION_ERROR', 'Invalid store');
   if (input.date < 2200) throw new AppError('VALIDATION_ERROR', 'Invalid date');
@@ -68,53 +70,48 @@ function validateExpense(input: Omit<IExpense, 'upid' | 'eid' | 'total'>) {
     desc: sagus.isValid(input.desc) ? input.desc.trim() : null,
   };
 
-  return sagus.trimObject(obj) as Omit<IExpense, 'eid' | 'upid'>;
+  return sagus.trimObject(obj) as Omit<IExpense, 'eid' | 'uid'>;
 }
 
 export class Expense {
   async list(): Promise<IExpense[]> {
     const skip = 0;
     const limit = 20;
-    const { uid, profile } = Context.getCurrentUser();
-    const upid = Utils.getUPID(uid, profile);
-    const expenses = await expenseCollection.find({ upid }, { sort: { date: -1 }, limit, skip }).toArray();
-    return expenses.map((obj) => ({ eid: obj._id.toString(), ...sagus.removeKeys(obj, ['_id']) }));
+    const { uid } = Context.getCurrentUser();
+    const expenses = await expenseCollection.find({ uid: new ObjectId(uid) }, { sort: { date: -1 }, limit, skip }).toArray();
+    return expenses.map((obj) => ({ eid: obj._id.toString(), uid, ...sagus.removeKeys(obj, ['_id', 'uid']) }));
   }
 
   async findByID(eid: ObjectId | string): Promise<IExpense | null> {
-    const { uid, profile } = Context.getCurrentUser();
-    const upid = Utils.getUPID(uid, profile);
+    const { uid } = Context.getCurrentUser();
     if (typeof eid === 'string') eid = new ObjectId(eid);
-    const expense = await expenseCollection.findOne({ _id: eid, upid });
+    const expense = await expenseCollection.findOne({ _id: eid, uid: new ObjectId(uid) });
     if (!expense) return null;
-    const obj = sagus.removeKeys(expense, ['_id']);
-    return { eid: expense._id.toString(), ...obj };
+    const obj = sagus.removeKeys(expense, ['_id', 'uid']);
+    return { eid: expense._id.toString(), uid, ...obj };
   }
 
   async add(input: Omit<IExpense, 'upid' | 'eid' | 'total'>): Promise<IExpense> {
-    const { uid, profile } = Context.getCurrentUser();
-    const upid = Utils.getUPID(uid, profile);
+    const { uid } = Context.getCurrentUser();
     const obj = validateExpense(input);
-    const expense = { upid, ...obj };
-    const result = await expenseCollection.insertOne(expense);
-    await Library.metadata.incrementBillCounter(upid, 1);
+    const expense = { uid, ...obj };
+    const result = await expenseCollection.insertOne({ ...expense, uid: new ObjectId(uid) });
+    await Library.metadata.incrementBillCounter(uid, 1);
     return { eid: result.insertedId.toString(), ...expense };
   }
 
   async update(eid: string | ObjectId, update: Omit<IExpense, 'upid' | 'eid' | 'total'>) {
-    const { uid, profile } = Context.getCurrentUser();
-    const upid = Utils.getUPID(uid, profile);
+    const { uid } = Context.getCurrentUser();
     if (typeof eid === 'string') eid = new ObjectId(eid);
     const updatedExpense = validateExpense(update);
-    await expenseCollection.updateOne({ _id: eid, upid }, { $set: updatedExpense });
-    return { eid: eid.toString(), upid, ...updatedExpense };
+    await expenseCollection.updateOne({ _id: eid, uid: new ObjectId(uid) }, { $set: updatedExpense });
+    return { eid: eid.toString(), uid, ...updatedExpense };
   }
 
   async delete(eid: string | ObjectId) {
-    const { uid, profile } = Context.getCurrentUser();
-    const upid = Utils.getUPID(uid, profile);
+    const { uid } = Context.getCurrentUser();
     if (typeof eid === 'string') eid = new ObjectId(eid);
-    await expenseCollection.deleteOne({ _id: eid, upid });
-    await Library.metadata.incrementBillCounter(upid, -1);
+    await expenseCollection.deleteOne({ _id: eid, uid: new ObjectId(uid) });
+    await Library.metadata.incrementBillCounter(uid, -1);
   }
 }

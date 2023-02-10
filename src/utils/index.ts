@@ -10,14 +10,14 @@ import { AsyncLocalStorage } from 'async_hooks';
  * Importing user defined packages.
  */
 import { calculateTotal } from './helpers';
-import { SECRET_KEY, AppError, AUTH } from './constants';
+import { SECRET_KEY, AppError, AUTH, SERVICE_NAME } from './constants';
 
 /**
  * Importing and defining types.
  */
 import type { RequestEvent } from '@sveltejs/kit';
 import type { CookieSerializeOptions } from 'cookie';
-import type { IUser, IUserSession, ISettings, ISettingProfile } from '@/lib';
+import type { IUser, IUserSession, IMetadata } from '@/lib';
 
 const logger = global.getLogger('utils:index');
 
@@ -76,12 +76,12 @@ export const Context = {
     return asyncLocalStorage.getStore()!.get('CURRENT_REQUEST_EVENT');
   },
 
-  getCurrentUser(): IUser & { settings: ISettings | null; profile: ISettingProfile | null } {
+  getCurrentUser(): IUser & { metadata: IMetadata } {
     return asyncLocalStorage.getStore()!.get('CURRENT_USER');
   },
 
-  setCurrentUser(user: IUser, settings: ISettings | null, profile: ISettingProfile | null) {
-    const obj = { ...user, settings, profile };
+  setCurrentUser(user: IUser, metadata: IMetadata) {
+    const obj = { ...user, metadata };
     asyncLocalStorage.getStore()!.set('CURRENT_USER', obj);
   },
 
@@ -97,10 +97,6 @@ export const Context = {
 /********************************************* Utils *********************************************/
 
 export const Utils = {
-  getUPID(uid: string, profile: ISettingProfile) {
-    return uid + '-' + profile.id;
-  },
-
   encodeCookie(uid: string, sid: string) {
     return uid + '|' + sid;
   },
@@ -111,4 +107,4 @@ export const Utils = {
   },
 };
 
-export { SECRET_KEY, AppError, calculateTotal, AUTH };
+export { SECRET_KEY, AppError, calculateTotal, AUTH, SERVICE_NAME };
