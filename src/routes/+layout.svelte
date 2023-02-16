@@ -12,8 +12,8 @@
   /**
    * Importing user defined components
    */
-  import '../app.css';
-  import NavItem from './nav-item.svelte';
+  import '@/app.css';
+  import NavItem from '@/components/nav-item.svelte';
 
   /**
    *  Importing user defined modules
@@ -38,7 +38,7 @@
       label: 'Finance',
       subMenu: [
         { href: '/finance', label: 'Overview' },
-        { href: '/finance/create', label: 'Create' },
+        { href: '/finance/add-expense', label: 'Add Expense' },
         { href: '/finance/list', label: 'List' },
       ],
     },
@@ -58,7 +58,7 @@
     </div>
   </nav>
   <div>
-    <section class="flex justify-end items-center h-14 px-6">
+    <section class="flex justify-end items-center h-14 px-6 bg-paper fixed">
       <button
         id="user"
         class={dropdownButtonClasses}
@@ -108,20 +108,24 @@
 
 <style>
   nav {
+    position: fixed;
     width: 280px;
-    background-color: #1e1e1e;
-    border-right: 1px solid #ffffff12;
+    height: 100%;
+    background-color: var(--color-paper);
+    border-right: 1px solid var(--color-border);
   }
 
   #layout > div {
+    margin-left: 280px;
     width: calc(100% - 280px);
   }
 
   section {
-    background-color: #1e1e1e;
+    width: calc(100% - 280px);
   }
 
   .content {
+    margin-top: 50px;
     padding: 24px;
   }
 

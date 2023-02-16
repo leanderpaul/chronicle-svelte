@@ -107,8 +107,6 @@ async function verifyCookie(cookie?: string) {
 
 export const handle: Handle = async ({ event, resolve }) => {
   return Context.init(event, async () => {
-    logger.info('Request context inited');
-
     const url = event.url.pathname;
     if (url === '/api/status' || url === '/api/set-cookie') return resolve(event);
 

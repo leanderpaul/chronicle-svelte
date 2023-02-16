@@ -32,8 +32,12 @@ export interface IExpense {
   bid?: string;
   /** Name of the store from which this bill or invoice is issued */
   store: string;
+  /** Store Location */
+  storeAddr?: string;
   /** The date on which the bill or invoice was issued */
   date: number;
+  /** The time of the bill */
+  time?: number;
   /** Array containing the items that are in the bill */
   items: IExpenseItem[];
   /** payment method used to pay for this expense */
@@ -57,13 +61,17 @@ const expenseCollection = global.getCollection('expenses');
 function validateExpense(input: Omit<IExpense, 'uid' | 'eid' | 'total'>) {
   const items = input.items.filter((item) => item.qty === undefined || item.qty > 0);
   if (!sagus.isValid(input.store)) throw new AppError('VALIDATION_ERROR', 'Invalid store');
-  if (input.date < 2200) throw new AppError('VALIDATION_ERROR', 'Invalid date');
+  if (input.date > 200101 && input.date < 991231) throw new AppError('VALIDATION_ERROR', 'Invalid date');
+  if (input.time && input.time > 0 && input.date < 2359) throw new AppError('VALIDATION_ERROR', 'Invalid time');
   if (items.some((i) => !sagus.isValid(i.name))) throw new AppError('VALIDATION_ERROR', 'Expense item name invalid');
+  if (!/^(INR|GBP)$/.test(input.currency)) throw new AppError('VALIDATION_ERROR', 'Currency invalid or not supported');
 
   const obj = {
     bid: sagus.isValid(input.bid) ? input.bid.trim() : null,
     date: input.date,
+    time: sagus.isValid(input.time) ? input.time : null,
     store: input.store.trim(),
+    storeAddr: sagus.isValid(input.storeAddr) ? input.storeAddr.trim() : null,
     items: items.map((i) => ({ ...i, qty: i.qty && i.qty === 1 ? null : i.qty })),
     pm: sagus.isValid(input.pm) ? input.pm.trim() : null,
     total: calculateTotal(input.items),
@@ -91,7 +99,7 @@ export class Expense {
     return { eid: expense._id.toString(), uid, ...obj };
   }
 
-  async add(input: Omit<IExpense, 'upid' | 'eid' | 'total'>): Promise<IExpense> {
+  async add(input: Omit<IExpense, 'uid' | 'eid' | 'total'>): Promise<IExpense> {
     const { uid } = Context.getCurrentUser();
     const obj = validateExpense(input);
     const expense = { uid, ...obj };
@@ -100,7 +108,7 @@ export class Expense {
     return { eid: result.insertedId.toString(), ...expense };
   }
 
-  async update(eid: string | ObjectId, update: Omit<IExpense, 'upid' | 'eid' | 'total'>) {
+  async update(eid: string | ObjectId, update: Omit<IExpense, 'uid' | 'eid' | 'total'>) {
     const { uid } = Context.getCurrentUser();
     if (typeof eid === 'string') eid = new ObjectId(eid);
     const updatedExpense = validateExpense(update);

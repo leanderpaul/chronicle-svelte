@@ -4,15 +4,22 @@ const config = {
   theme: {
     extend: {
       colors: {
-        paper: {
-          light: '#292929',
-          DEFAULT: '#1e1e1e',
-          dark: '#121212',
-        },
+        border: 'var(--color-border)',
         content: {
-          light: '#ffffffde',
-          DEFAULT: '#8a8a8a',
-          dark: '#6a6a6a',
+          light: 'var(--color-content-light)',
+          DEFAULT: 'var(--color-content)',
+          dark: 'var(--color-content-dark)',
+        },
+        paper: {
+          light: 'var(--color-paper-light)',
+          DEFAULT: 'var(--color-paper)',
+          dark: 'var(--color-paper-dark)',
+        },
+        primary: {
+          light: 'var(--color-primary-light)',
+          DEFAULT: 'var(--color-primary)',
+          dark: 'var(--color-primary-dark)',
+          darker: 'var(--color-primary-darker)',
         },
       },
     },

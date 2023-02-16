@@ -48,8 +48,8 @@
     </button>
     {#if openSubMenu}
       {#each subMenu as item (item.label)}
-        <a href={item.href} style="padding-left: 25px;">
-          <CircleSolid size="6px" color={$page.route.id === item.href ? '#9e77ed' : '#1e1e1e'} />
+        <a href={item.href} rel="external" style="padding-left: 25px;">
+          <CircleSolid size="6px" color={$page.route.id === item.href ? '#9e77ed' : 'transparent'} />
           <span>{item.label}</span>
         </a>
       {/each}
@@ -83,7 +83,7 @@
 
   a:hover:not(.disabled),
   button:hover {
-    background-color: #292929;
+    background-color: var(--color-paper-light);
   }
 
   .disabled {
@@ -91,8 +91,8 @@
   }
 
   .selected {
-    background-color: #292929;
-    color: #ffffffde;
+    background-color: var(--color-paper-light);
+    color: var(--color-content-light);
   }
 
   span {
